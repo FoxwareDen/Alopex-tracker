@@ -1,6 +1,110 @@
-const demoFunction = () => {
-    console.log('Hello from demoFunction');
-    return 'Hello from demoFunction';
-};
+/**
+ * Analytics tracking class that batches and sends events to a backend endpoint.
+ * Implements automatic flushing based on batch size and time intervals.
+ *
+ * @example
+ * ```typescript
+ * // Initialize the tracker
+ * const tracker = new AnalyticsTracker({
+ *   endpoint: 'https://api.example.com/analytics',
+ *   batchSize: 20,
+ *   flushInterval: 10000
+ * });
+ *
+ * // Track an event
+ * AnalyticsTracker.track('button_click', {
+ *   match: 'signup',
+ *   buttonId: 'cta-button'
+ * });
+ * ```
+ */
+class AnalyticsTracker {
+    /**
+     * Initializes the analytics tracker with the provided configuration.
+     * Sets up automatic flushing on intervals and before page unload.
+     *
+     * @param config - Configuration object for the tracker
+     */
+    constructor(config) {
+        AnalyticsTracker.endpoint = config.endpoint; // Your own backend URL
+        if (!AnalyticsTracker.initialized) {
+            AnalyticsTracker.queue = [];
+            AnalyticsTracker.batchSize = config.batchSize || 10;
+            AnalyticsTracker.flushInterval = config.flushInterval || 5000; // 5 seconds
+            AnalyticsTracker.initialized = true;
+        }
+        // Auto-flush on interval
+        setInterval(() => AnalyticsTracker.flush(), AnalyticsTracker.flushInterval);
+        // Flush on page unload
+        window.addEventListener('beforeunload', () => AnalyticsTracker.flush());
+    }
+    /**
+     * Tracks an analytics event by adding it to the queue.
+     * Automatically flushes if the batch size is reached.
+     *
+     * @param eventName - Name of the event to track
+     * @param properties - Custom properties for the event (must include 'match' field)
+     *
+     * @example
+     * ```typescript
+     * AnalyticsTracker.track('page_view', {
+     *   match: 'homepage',
+     *   referrer: document.referrer
+     * });
+     * ```
+     */
+    static track(eventName, properties) {
+        const event = {
+            event: eventName,
+            properties: properties,
+            timestamp: Date.now(),
+            url: window.location.href,
+            userAgent: navigator.userAgent
+        };
+        AnalyticsTracker.queue.push(event);
+        // Auto-flush if batch is full
+        if (AnalyticsTracker.queue.length >= AnalyticsTracker.batchSize) {
+            AnalyticsTracker.flush();
+        }
+    }
+    /**
+     * Sends all queued events to the backend endpoint.
+     * Clears the queue after sending. On failure, events are re-added to the queue.
+     * Does nothing if the queue is empty or endpoint is not configured.
+     *
+     * @remarks
+     * This method is called automatically on:
+     * - Regular intervals (based on flushInterval)
+     * - When batch size is reached
+     * - Before page unload
+     *
+     * Can also be called manually to force immediate sending.
+     */
+    static flush() {
+        if (AnalyticsTracker.queue.length === 0)
+            return;
+        const events = [...AnalyticsTracker.queue];
+        AnalyticsTracker.queue = [];
+        // Send via fetch
+        if (AnalyticsTracker.endpoint) {
+            fetch(AnalyticsTracker.endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ events })
+            }).catch(err => {
+                console.error('Analytics failed:', err);
+                // Put back in queue on failure
+                AnalyticsTracker.queue.push(...events);
+            });
+        }
+        else {
+            console.error('Analytics endpoint not set');
+        }
+    }
+}
+/** Flag indicating whether the tracker has been initialized */
+AnalyticsTracker.initialized = false;
+/** The backend endpoint URL for sending analytics data */
+AnalyticsTracker.endpoint = null;
 
-export { demoFunction };
+export { AnalyticsTracker };
