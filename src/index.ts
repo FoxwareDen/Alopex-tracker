@@ -1,9 +1,9 @@
+import { Flush } from "./orms";
+
 /**
  * Configuration options for the AnalyticsTracker
  */
 export interface Config {
-  /** The backend endpoint URL where analytics events will be sent */
-  endpoint: string
   /** Number of events to batch before automatically flushing. Default: 10 */
   batchSize?: number
   /** Time interval in milliseconds between automatic flushes. Default: 5000 (5 seconds) */
@@ -55,20 +55,17 @@ export interface TrackerEvent {
  * ```
  */
 export class AnalyticsTracker {
-  /** Flag indicating whether the tracker has been initialized */
-  static initialized = false;
+  static version = '1.0.0';
 
-  /** The backend endpoint URL for sending analytics data */
-  static endpoint: string | null = null;
-
+  public orm: Flush;
   /** Queue storing events waiting to be sent */
-  static queue: any[];
+  public queue: any[];
 
   /** Maximum number of events to batch before auto-flushing */
-  static batchSize: number;
+  private batchSize: number;
 
   /** Time interval (ms) between automatic flush operations */
-  static flushInterval: number;
+  private flushInterval: number;
 
   /**
    * Initializes the analytics tracker with the provided configuration.
@@ -76,20 +73,23 @@ export class AnalyticsTracker {
    * 
    * @param config - Configuration object for the tracker
    */
-  constructor(config: Config) {
-    AnalyticsTracker.endpoint = config.endpoint; // Your own backend URL
-    if (!AnalyticsTracker.initialized) {
-      AnalyticsTracker.queue = [];
-      AnalyticsTracker.batchSize = config.batchSize || 10;
-      AnalyticsTracker.flushInterval = config.flushInterval || 5000; // 5 seconds
-      AnalyticsTracker.initialized = true;
-    }
+  constructor(config: Config, orm: Flush) {
+    this.queue = [];
+    this.batchSize = config.batchSize || 10;
+    this.flushInterval = config.flushInterval || 5000; // 5 seconds
+    this.orm = orm;
 
     // Auto-flush on interval
-    setInterval(() => AnalyticsTracker.flush(), AnalyticsTracker.flushInterval);
+    setInterval(() => this.flush(), this.flushInterval);
 
     // Flush on page unload
-    window.addEventListener('beforeunload', () => AnalyticsTracker.flush());
+    if (typeof window === 'undefined') {
+      console.warn('window is not defined');
+    } else {
+      window.addEventListener('beforeunload', () =>
+        this.flush()
+      );
+    }
   }
 
   /**
@@ -107,20 +107,28 @@ export class AnalyticsTracker {
    * });
    * ```
    */
-  static track(eventName: string, properties: Properties & any) {
+  track(eventName: string, properties: Properties & any) {
+
+    let url = "";
+    if (typeof window === 'undefined') {
+      console.warn('window is not defined');
+    } else {
+      url = window.location.href;
+    }
+
     const event: TrackerEvent = {
       event: eventName,
       properties: properties,
       timestamp: Date.now(),
-      url: window.location.href,
+      url,
       userAgent: navigator.userAgent
     };
 
-    AnalyticsTracker.queue.push(event);
+    this.queue.push(event);
 
     // Auto-flush if batch is full
-    if (AnalyticsTracker.queue.length >= AnalyticsTracker.batchSize) {
-      AnalyticsTracker.flush();
+    if (this.queue.length >= this.batchSize) {
+      this.flush();
     }
   }
 
@@ -137,25 +145,13 @@ export class AnalyticsTracker {
    * 
    * Can also be called manually to force immediate sending.
    */
-  static flush() {
-    if (AnalyticsTracker.queue.length === 0) return;
+  flush() {
+    if (this.queue.length === 0) return;
 
-    const events = [...AnalyticsTracker.queue];
-    AnalyticsTracker.queue = [];
+    const events = [...this.queue];
+    this.queue = [];
 
     // Send via fetch
-    if (AnalyticsTracker.endpoint) {
-      fetch(AnalyticsTracker.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events })
-      }).catch(err => {
-        console.error('Analytics failed:', err);
-        // Put back in queue on failure
-        AnalyticsTracker.queue.push(...events);
-      });
-    } else {
-      console.error('Analytics endpoint not set');
-    }
+    this.orm.flush(events);
   }
 }
