@@ -1,9 +1,8 @@
+import { Flush } from "./orms";
 /**
  * Configuration options for the AnalyticsTracker
  */
 export interface Config {
-    /** The backend endpoint URL where analytics events will be sent */
-    endpoint: string;
     /** Number of events to batch before automatically flushing. Default: 10 */
     batchSize?: number;
     /** Time interval in milliseconds between automatic flushes. Default: 5000 (5 seconds) */
@@ -52,23 +51,21 @@ export interface TrackerEvent {
  * ```
  */
 export declare class AnalyticsTracker {
-    /** Flag indicating whether the tracker has been initialized */
-    static initialized: boolean;
-    /** The backend endpoint URL for sending analytics data */
-    static endpoint: string | null;
+    static version: string;
+    orm: Flush;
     /** Queue storing events waiting to be sent */
-    static queue: any[];
+    queue: any[];
     /** Maximum number of events to batch before auto-flushing */
-    static batchSize: number;
+    private batchSize;
     /** Time interval (ms) between automatic flush operations */
-    static flushInterval: number;
+    private flushInterval;
     /**
      * Initializes the analytics tracker with the provided configuration.
      * Sets up automatic flushing on intervals and before page unload.
      *
      * @param config - Configuration object for the tracker
      */
-    constructor(config: Config);
+    constructor(config: Config, orm: Flush);
     /**
      * Tracks an analytics event by adding it to the queue.
      * Automatically flushes if the batch size is reached.
@@ -84,7 +81,7 @@ export declare class AnalyticsTracker {
      * });
      * ```
      */
-    static track(eventName: string, properties: Properties & any): void;
+    track(eventName: string, properties: Properties & any): void;
     /**
      * Sends all queued events to the backend endpoint.
      * Clears the queue after sending. On failure, events are re-added to the queue.
@@ -98,5 +95,5 @@ export declare class AnalyticsTracker {
      *
      * Can also be called manually to force immediate sending.
      */
-    static flush(): void;
+    flush(): void;
 }

@@ -27,18 +27,20 @@ class AnalyticsTracker {
      *
      * @param config - Configuration object for the tracker
      */
-    constructor(config) {
-        AnalyticsTracker.endpoint = config.endpoint; // Your own backend URL
-        if (!AnalyticsTracker.initialized) {
-            AnalyticsTracker.queue = [];
-            AnalyticsTracker.batchSize = config.batchSize || 10;
-            AnalyticsTracker.flushInterval = config.flushInterval || 5000; // 5 seconds
-            AnalyticsTracker.initialized = true;
-        }
+    constructor(config, orm) {
+        this.queue = [];
+        this.batchSize = config.batchSize || 10;
+        this.flushInterval = config.flushInterval || 5000; // 5 seconds
+        this.orm = orm;
         // Auto-flush on interval
-        setInterval(() => AnalyticsTracker.flush(), AnalyticsTracker.flushInterval);
+        setInterval(() => this.flush(), this.flushInterval);
         // Flush on page unload
-        window.addEventListener('beforeunload', () => AnalyticsTracker.flush());
+        if (typeof window === 'undefined') {
+            console.warn('window is not defined');
+        }
+        else {
+            window.addEventListener('beforeunload', () => this.flush());
+        }
     }
     /**
      * Tracks an analytics event by adding it to the queue.
@@ -55,18 +57,25 @@ class AnalyticsTracker {
      * });
      * ```
      */
-    static track(eventName, properties) {
+    track(eventName, properties) {
+        let url = "";
+        if (typeof window === 'undefined') {
+            console.warn('window is not defined');
+        }
+        else {
+            url = window.location.href;
+        }
         const event = {
             event: eventName,
             properties: properties,
             timestamp: Date.now(),
-            url: window.location.href,
+            url,
             userAgent: navigator.userAgent
         };
-        AnalyticsTracker.queue.push(event);
+        this.queue.push(event);
         // Auto-flush if batch is full
-        if (AnalyticsTracker.queue.length >= AnalyticsTracker.batchSize) {
-            AnalyticsTracker.flush();
+        if (this.queue.length >= this.batchSize) {
+            this.flush();
         }
     }
     /**
@@ -82,31 +91,15 @@ class AnalyticsTracker {
      *
      * Can also be called manually to force immediate sending.
      */
-    static flush() {
-        if (AnalyticsTracker.queue.length === 0)
+    flush() {
+        if (this.queue.length === 0)
             return;
-        const events = [...AnalyticsTracker.queue];
-        AnalyticsTracker.queue = [];
+        const events = [...this.queue];
+        this.queue = [];
         // Send via fetch
-        if (AnalyticsTracker.endpoint) {
-            fetch(AnalyticsTracker.endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ events })
-            }).catch(err => {
-                console.error('Analytics failed:', err);
-                // Put back in queue on failure
-                AnalyticsTracker.queue.push(...events);
-            });
-        }
-        else {
-            console.error('Analytics endpoint not set');
-        }
+        this.orm.flush(events);
     }
 }
-/** Flag indicating whether the tracker has been initialized */
-AnalyticsTracker.initialized = false;
-/** The backend endpoint URL for sending analytics data */
-AnalyticsTracker.endpoint = null;
+AnalyticsTracker.version = '1.0.0';
 
 exports.AnalyticsTracker = AnalyticsTracker;
