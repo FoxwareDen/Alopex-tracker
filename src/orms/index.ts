@@ -1,4 +1,5 @@
 import { SupabaseClient, SupabaseClientOptions } from "@supabase/supabase-js"
+import { TrackerEvent } from "../index";
 
 export abstract class Flush {
   abstract flush(data: any): Promise<void>
@@ -21,7 +22,7 @@ export class FetchFlush extends Flush {
   }
 }
 
-export type superBaseFunction<T> = (client: SupabaseClient, data: T) => Promise<void>
+export type superBaseFunction<T> = (client: SupabaseClient, data: TrackerEvent<T>[]) => Promise<void>
 
 export class SupabaseFlush<T> extends Flush {
   private client: SupabaseClient;

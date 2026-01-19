@@ -21,11 +21,11 @@ export interface Properties {
 /**
  * Represents a single analytics event with metadata
  */
-export interface TrackerEvent {
+export interface TrackerEvent<T> {
   /** Name of the event being tracked */
   event: string,
   /** Custom properties associated with the event */
-  properties: any,
+  properties: Properties & T,
   /** Unix timestamp (in milliseconds) when the event occurred */
   timestamp: number,
   /** URL where the event was triggered */
@@ -107,7 +107,7 @@ export class AnalyticsTracker {
    * });
    * ```
    */
-  track(eventName: string, properties: Properties & any) {
+  track<T>(eventName: string, properties: Properties & T) {
 
     let url = "";
     if (typeof window === 'undefined') {
@@ -116,7 +116,7 @@ export class AnalyticsTracker {
       url = window.location.href;
     }
 
-    const event: TrackerEvent = {
+    const event: TrackerEvent<T> = {
       event: eventName,
       properties: properties,
       timestamp: Date.now(),

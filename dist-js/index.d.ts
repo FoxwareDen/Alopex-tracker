@@ -18,11 +18,11 @@ export interface Properties {
 /**
  * Represents a single analytics event with metadata
  */
-export interface TrackerEvent {
+export interface TrackerEvent<T> {
     /** Name of the event being tracked */
     event: string;
     /** Custom properties associated with the event */
-    properties: any;
+    properties: Properties & T;
     /** Unix timestamp (in milliseconds) when the event occurred */
     timestamp: number;
     /** URL where the event was triggered */
@@ -81,7 +81,7 @@ export declare class AnalyticsTracker {
      * });
      * ```
      */
-    track(eventName: string, properties: Properties & any): void;
+    track<T>(eventName: string, properties: Properties & T): void;
     /**
      * Sends all queued events to the backend endpoint.
      * Clears the queue after sending. On failure, events are re-added to the queue.
