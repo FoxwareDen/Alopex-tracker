@@ -1,6 +1,6 @@
 {
-  "name": "alepex-tracker",
-  "version": "1.0.3",
+  "name": "alopex-tracker",
+  "version": "1.0.4",
   "description": "",
   "type": "module",
   "types": "./dist-js/index.d.ts",
